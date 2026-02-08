@@ -86,10 +86,17 @@ model Item {
   inboundAt         DateTime @default(now())
   statusValue       String?
   acquireMethodValue String?
+  storageLocationValue String?
+  conditionValue    String?
+  quantity          Int      @default(1)
   price             Int      @default(0)
+  estimatedValue    Int?
   isFavorite        Boolean  @default(false)
   rating            Int      @default(0)
   note              String?
+  borrowedTo        String?
+  borrowedAt        DateTime?
+  expectedReturnAt  DateTime?
   tagNamesSnapshot  Json?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

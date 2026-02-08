@@ -245,23 +245,230 @@ function Comments({ id }: { id: string }) {
 }
 
 function MoreInfo({ id }: { id: string }) {
+  const utils = trpc.useUtils();
   const item = trpc.items.get.useQuery({ id });
-  const templates = item.data?.templates ?? [];
+  const removeTemplate = trpc.itemTemplates.remove.useMutation({
+    onSuccess: async () => {
+      await utils.items.get.invalidate({ id });
+    },
+  });
+  const upsertTemplate = trpc.itemTemplates.upsert.useMutation({
+    onSuccess: async () => {
+      await utils.items.get.invalidate({ id });
+    },
+  });
+
+  const templates = (item.data?.templates ?? []) as Array<{
+    id: string;
+    templateGroupSnapshot: string;
+    templateNameSnapshot: string;
+    schemaSnapshot: unknown;
+    values: unknown;
+  }>;
+
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<Record<string, unknown>>({});
+
+  type TemplateField = {
+    key: string;
+    label: string;
+    type: "text" | "number" | "select" | "date" | "boolean";
+    required?: boolean;
+    options?: string[];
+  };
+
+  function parseSchema(schema: unknown): TemplateField[] {
+    if (!Array.isArray(schema)) return [];
+    return schema.map((f) => {
+      const field = f as Record<string, unknown>;
+      return {
+        key: String(field.key ?? ""),
+        label: String(field.label ?? ""),
+        type: (field.type as TemplateField["type"]) ?? "text",
+        required: Boolean(field.required),
+        options: Array.isArray(field.options) ? field.options.map(String) : undefined,
+      };
+    });
+  }
+
+  function formatValue(value: unknown, type: string): string {
+    if (value === null || value === undefined || value === "") return "—";
+    if (type === "boolean") return value ? "是" : "否";
+    if (type === "date" && typeof value === "string") {
+      try {
+        return new Date(value).toLocaleDateString();
+      } catch {
+        return String(value);
+      }
+    }
+    return String(value);
+  }
+
+  function startEdit(templateId: string, currentValues: unknown) {
+    setEditing(templateId);
+    setEditValues((currentValues as Record<string, unknown>) ?? {});
+  }
+
+  function saveEdit(template: typeof templates[0]) {
+    upsertTemplate.mutate({
+      itemId: id,
+      instanceId: template.id,
+      templateGroupSnapshot: template.templateGroupSnapshot,
+      templateNameSnapshot: template.templateNameSnapshot,
+      schemaSnapshot: template.schemaSnapshot,
+      values: editValues as Record<string, unknown>,
+    });
+    setEditing(null);
+  }
 
   return (
     <div className="space-y-3">
-      {templates.map((t) => (
-        <div key={t.id} className="rounded-2xl border border-white/10 bg-black/20 p-4">
-          <div className="text-xs text-white/60">{t.templateGroupSnapshot}</div>
-          <div className="mt-1 font-medium">{t.templateNameSnapshot}</div>
-          <pre className="mt-3 overflow-auto rounded-xl border border-white/10 bg-black/30 p-3 text-xs text-white/70">
-            {JSON.stringify(t.values, null, 2)}
-          </pre>
-        </div>
-      ))}
+      {templates.map((t) => {
+        const schema = parseSchema(t.schemaSnapshot);
+        const values = (t.values as Record<string, unknown>) ?? {};
+        const isCollapsed = collapsed[t.id];
+        const isEditing = editing === t.id;
+
+        return (
+          <div key={t.id} className="rounded-2xl border border-white/10 bg-black/20 overflow-hidden">
+            <div className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <button
+                  onClick={() => setCollapsed({ ...collapsed, [t.id]: !isCollapsed })}
+                  className="flex-1 text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg
+                      className={clsx(
+                        "h-4 w-4 text-white/60 transition-transform",
+                        isCollapsed ? "-rotate-90" : "",
+                      )}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    <div className="text-xs text-white/60">{t.templateGroupSnapshot}</div>
+                  </div>
+                  <div className="mt-1 font-medium">{t.templateNameSnapshot}</div>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  {!isEditing ? (
+                    <>
+                      <button
+                        onClick={() => startEdit(t.id, t.values)}
+                        className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/80 hover:bg-white/10"
+                      >
+                        编辑
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`确定删除"${t.templateNameSnapshot}"吗？`)) {
+                            removeTemplate.mutate({ id: t.id });
+                          }
+                        }}
+                        disabled={removeTemplate.isPending}
+                        className="rounded-full border border-rose-300/20 bg-rose-300/10 px-3 py-1 text-xs text-rose-100"
+                      >
+                        删除
+                      </button>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+
+              {!isCollapsed ? (
+                <div className="mt-4 space-y-3">
+                  {isEditing ? (
+                    <>
+                      {schema.map((field) => (
+                        <label key={field.key} className="block">
+                          <div className="mb-1 text-xs text-white/60">
+                            {field.label}
+                            {field.required ? <span className="text-rose-300"> *</span> : null}
+                          </div>
+                          {field.type === "select" ? (
+                            <select
+                              value={String(editValues[field.key] ?? "")}
+                              onChange={(e) =>
+                                setEditValues({ ...editValues, [field.key]: e.target.value })
+                              }
+                              className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm outline-none"
+                            >
+                              <option value="">—</option>
+                              {(field.options ?? []).map((opt) => (
+                                <option key={opt} value={opt}>
+                                  {opt}
+                                </option>
+                              ))}
+                            </select>
+                          ) : field.type === "boolean" ? (
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(editValues[field.key])}
+                                onChange={(e) =>
+                                  setEditValues({ ...editValues, [field.key]: e.target.checked })
+                                }
+                                className="h-4 w-4 rounded border-white/20 bg-black/20"
+                              />
+                              <span className="text-sm text-white/80">是</span>
+                            </label>
+                          ) : (
+                            <input
+                              type={field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
+                              value={String(editValues[field.key] ?? "")}
+                              onChange={(e) =>
+                                setEditValues({ ...editValues, [field.key]: e.target.value })
+                              }
+                              className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm outline-none"
+                            />
+                          )}
+                        </label>
+                      ))}
+                      <div className="flex justify-end gap-2 pt-2">
+                        <button
+                          onClick={() => setEditing(null)}
+                          className="rounded-xl border border-white/10 bg-black/20 px-4 py-2 text-sm text-white/80"
+                        >
+                          取消
+                        </button>
+                        <button
+                          onClick={() => saveEdit(t)}
+                          disabled={upsertTemplate.isPending}
+                          className={clsx(
+                            "rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black",
+                            upsertTemplate.isPending && "opacity-60",
+                          )}
+                        >
+                          保存
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {schema.map((field) => (
+                        <div key={field.key} className="rounded-xl border border-white/10 bg-black/30 p-3">
+                          <div className="text-xs text-white/55">{field.label}</div>
+                          <div className="mt-1 text-sm text-white/85">
+                            {formatValue(values[field.key], field.type)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        );
+      })}
       {templates.length === 0 ? (
         <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-white/70">
-          暂无更多信息模板。
+          暂无更多信息模板。可以在编辑页面添加模板。
         </div>
       ) : null}
     </div>

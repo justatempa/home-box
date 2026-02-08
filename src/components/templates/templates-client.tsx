@@ -219,8 +219,14 @@ export function TemplatesClient() {
       </div>
 
       {draft ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-2xl rounded-3xl border border-white/10 bg-[#0b1220] p-6 shadow-2xl">
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm overflow-y-auto"
+          onClick={() => setDraft(null)}
+        >
+          <div
+            className="w-full max-w-2xl rounded-3xl border border-white/10 bg-[#0b1220] p-6 shadow-2xl my-8"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="text-sm font-semibold">{draft.id ? "编辑模板" : "新建模板"}</div>
 
             <div className="mt-4 grid gap-2 sm:grid-cols-2">

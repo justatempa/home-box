@@ -45,20 +45,29 @@ CREATE TABLE "Item" (
     "ownerId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "categoryId" TEXT,
+    "parentId" TEXT,
     "coverImageId" TEXT,
     "inboundAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "statusValue" TEXT,
     "acquireMethodValue" TEXT,
+    "storageLocationValue" TEXT,
+    "conditionValue" TEXT,
+    "quantity" INTEGER NOT NULL DEFAULT 1,
     "price" INTEGER NOT NULL DEFAULT 0,
+    "estimatedValue" INTEGER,
     "isFavorite" BOOLEAN NOT NULL DEFAULT false,
     "rating" INTEGER NOT NULL DEFAULT 0,
     "note" TEXT,
+    "borrowedTo" TEXT,
+    "borrowedAt" DATETIME,
+    "expectedReturnAt" DATETIME,
     "tagNamesSnapshot" JSONB,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
     "deletedAt" DATETIME,
     CONSTRAINT "Item_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "Item_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT "Item_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "Item" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "Item_coverImageId_fkey" FOREIGN KEY ("coverImageId") REFERENCES "ItemImage" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
@@ -207,6 +216,9 @@ CREATE INDEX "Item_ownerId_inboundAt_idx" ON "Item"("ownerId", "inboundAt");
 
 -- CreateIndex
 CREATE INDEX "Item_ownerId_categoryId_idx" ON "Item"("ownerId", "categoryId");
+
+-- CreateIndex
+CREATE INDEX "Item_ownerId_parentId_deletedAt_idx" ON "Item"("ownerId", "parentId", "deletedAt");
 
 -- CreateIndex
 CREATE INDEX "Item_ownerId_statusValue_idx" ON "Item"("ownerId", "statusValue");

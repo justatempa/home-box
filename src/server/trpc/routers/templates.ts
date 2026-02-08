@@ -21,7 +21,13 @@ export const templatesRouter = createTRPCRouter({
   list: protectedProcedure.query(async ({ ctx }) => {
     const ownerId = ctx.session!.user!.id;
     return await ctx.prisma.template.findMany({
-      where: { scopeOwner: ownerId, deletedAt: null },
+      where: {
+        OR: [
+          { scopeOwner: ownerId },
+          { scopeOwner: "system" },
+        ],
+        deletedAt: null,
+      },
       orderBy: [{ templateGroup: "asc" }, { templateName: "asc" }],
       select: {
         id: true,

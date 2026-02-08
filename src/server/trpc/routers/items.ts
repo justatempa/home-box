@@ -5,15 +5,45 @@ import { createTRPCRouter, idSchema, imageUrlSchema, protectedProcedure } from "
 
 const itemInput = z.object({
   name: z.string().trim().min(1).max(128),
-  categoryId: z.string().trim().min(1).optional().nullable(),
-  parentId: z.string().trim().min(1).optional().nullable(),
+  categoryId: z
+    .string()
+    .trim()
+    .min(1)
+    .optional()
+    .nullable()
+    .transform((val) => (val === "" ? null : val)),
+  parentId: z
+    .string()
+    .trim()
+    .min(1)
+    .optional()
+    .nullable()
+    .transform((val) => (val === "" ? null : val)),
   inboundAt: z.coerce.date().optional(),
-  statusValue: z.string().trim().max(64).optional().nullable(),
-  acquireMethodValue: z.string().trim().max(64).optional().nullable(),
+  statusValue: z
+    .string()
+    .trim()
+    .max(64)
+    .optional()
+    .nullable()
+    .transform((val) => (val === "" ? null : val)),
+  acquireMethodValue: z
+    .string()
+    .trim()
+    .max(64)
+    .optional()
+    .nullable()
+    .transform((val) => (val === "" ? null : val)),
   price: z.number().int().min(0).max(2_000_000_000).default(0),
   isFavorite: z.boolean().default(false),
   rating: z.number().int().min(0).max(5).default(0),
-  note: z.string().trim().max(2000).optional().nullable(),
+  note: z
+    .string()
+    .trim()
+    .max(2000)
+    .optional()
+    .nullable()
+    .transform((val) => (val === "" ? null : val)),
   tagNamesSnapshot: z.array(z.string().trim().min(1).max(32)).optional(),
   tagIds: z.array(z.string().min(1)).optional(),
 });
@@ -233,27 +263,42 @@ export const itemsRouter = createTRPCRouter({
   create: protectedProcedure.input(itemInput).mutation(async ({ ctx, input }) => {
     const ownerId = ctx.session!.user!.id;
 
+    // Validate categoryId if provided
+    if (input.categoryId) {
+      const category = await ctx.prisma.category.findFirst({
+        where: { id: input.categoryId, ownerId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!category) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid categoryId" });
+      }
+    }
+
     const parentId = await resolveParentId({
       ctx,
       ownerId,
       parentId: input.parentId,
     });
 
+    const createData = {
+      ownerId,
+      name: input.name,
+      categoryId: input.categoryId ?? null,
+      parentId: parentId ?? null,
+      inboundAt: input.inboundAt ?? new Date(),
+      statusValue: input.statusValue ?? null,
+      acquireMethodValue: input.acquireMethodValue ?? null,
+      price: input.price,
+      isFavorite: input.isFavorite,
+      rating: input.rating,
+      note: input.note ?? null,
+      tagNamesSnapshot: input.tagNamesSnapshot ?? [],
+    };
+
+    console.log("Creating item with data:", JSON.stringify(createData, null, 2));
+
     const created = await ctx.prisma.item.create({
-      data: {
-        ownerId,
-        name: input.name,
-        categoryId: input.categoryId ?? null,
-        parentId: parentId ?? null,
-        inboundAt: input.inboundAt ?? new Date(),
-        statusValue: input.statusValue ?? null,
-        acquireMethodValue: input.acquireMethodValue ?? null,
-        price: input.price,
-        isFavorite: input.isFavorite,
-        rating: input.rating,
-        note: input.note ?? null,
-        tagNamesSnapshot: input.tagNamesSnapshot ?? [],
-      },
+      data: createData,
     });
 
     if (input.tagIds?.length) {

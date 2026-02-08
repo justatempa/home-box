@@ -55,14 +55,14 @@ export function ItemCreateClient() {
         try {
           const created = await create.mutateAsync({
             name: values.name,
-            categoryId: values.categoryId,
+            categoryId: values.categoryId || null,
             inboundAt: new Date(values.inboundAt),
-            statusValue: values.statusValue,
-            acquireMethodValue: values.acquireMethodValue,
+            statusValue: values.statusValue || null,
+            acquireMethodValue: values.acquireMethodValue || null,
             price: values.price,
             isFavorite: values.isFavorite,
             rating: values.rating,
-            note: values.note,
+            note: values.note || null,
           });
           return created.id;
         } finally {
