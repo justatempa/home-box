@@ -251,6 +251,27 @@ sudo journalctl -u home-box -f
 
 ## 🐛 故障排查
 
+### 登录后跳转到 localhost（常见问题）⭐
+
+**问题**: 部署到服务器后，登录成功会跳转到 `localhost`，导致无法访问。
+
+**原因**: `NEXTAUTH_URL` 配置为 `localhost`。
+
+**快速修复**:
+
+```bash
+# 方法1: 使用自动修复脚本（推荐）
+chmod +x fix-redirect.sh
+./fix-redirect.sh
+
+# 方法2: 手动修改配置文件
+nano config.env
+# 修改: NEXTAUTH_URL="http://你的服务器IP:3002"
+./start.sh restart
+```
+
+**详细说明**: 查看 [登录跳转问题修复指南](./docs/fix-login-redirect.md)
+
 ### 端口被占用
 
 ```bash
