@@ -25,3 +25,9 @@ export const appRouter = createTRPCRouter({
 
 export type AppRouter = typeof appRouter;
 
+/**
+ * Create a server-side caller for the tRPC API
+ * @see https://trpc.io/docs/server/server-side-calls
+ */
+export const createCaller = appRouter.createCaller;
+

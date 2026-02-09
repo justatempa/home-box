@@ -1,7 +1,8 @@
 import { TRPCError } from "@trpc/server";
+import QRCode from "qrcode";
 import { z } from "zod";
 
-import { createTRPCRouter, idSchema, imageUrlSchema, protectedProcedure } from "@/server/trpc/trpc";
+import { createTRPCRouter, idSchema, imageUrlSchema, protectedProcedure, publicProcedure } from "@/server/trpc/trpc";
 
 const itemInput = z.object({
   name: z.string().trim().min(1).max(128),
@@ -54,13 +55,8 @@ async function resolveParentId({
   itemId,
   parentId,
 }: {
-  ctx: {
-    prisma: {
-      item: {
-        findFirst: (args: unknown) => Promise<{ id: string; parentId: string | null } | null>;
-      };
-    };
-  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
   ownerId: string;
   itemId?: string;
   parentId: string | null | undefined;
@@ -547,5 +543,70 @@ export const itemsRouter = createTRPCRouter({
       });
 
       return { ok: true };
+    }),
+
+  // Generate QR code for an item
+  generateQRCode: protectedProcedure
+    .input(z.object({ itemId: idSchema }))
+    .mutation(async ({ ctx, input }) => {
+      const ownerId = ctx.session!.user!.id;
+      const item = await ctx.prisma.item.findFirst({
+        where: { id: input.itemId, ownerId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!item) throw new TRPCError({ code: "NOT_FOUND" });
+
+      // Generate QR code URL pointing to public item view
+      const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+      const qrUrl = `${baseUrl}/qr/${input.itemId}`;
+
+      // Generate QR code as base64 data URL
+      const qrCodeDataUrl = await QRCode.toDataURL(qrUrl, {
+        width: 300,
+        margin: 2,
+        errorCorrectionLevel: "M",
+      });
+
+      return {
+        qrCodeDataUrl,
+        qrUrl,
+      };
+    }),
+
+  // Public endpoint to get item basic info for QR code scanning
+  getPublicInfo: publicProcedure
+    .input(z.object({ id: idSchema }))
+    .query(async ({ ctx, input }) => {
+      const item = await ctx.prisma.item.findFirst({
+        where: { id: input.id, deletedAt: null },
+        select: {
+          id: true,
+          name: true,
+          note: true,
+          inboundAt: true,
+          statusValue: true,
+          acquireMethodValue: true,
+          price: true,
+          rating: true,
+          tagNamesSnapshot: true,
+          coverImage: {
+            select: { url: true, width: true, height: true },
+          },
+          images: {
+            where: { deletedAt: null },
+            orderBy: { sortOrder: "asc" },
+            select: { id: true, url: true, width: true, height: true, sortOrder: true },
+          },
+          category: {
+            select: { name: true },
+          },
+          owner: {
+            select: { username: true },
+          },
+        },
+      });
+
+      if (!item) throw new TRPCError({ code: "NOT_FOUND" });
+      return item;
     }),
 });

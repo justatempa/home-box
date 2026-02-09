@@ -318,6 +318,23 @@ async function main() {
         { key: "discountPrice", label: "实付（元）", type: "number", required: false },
       ],
     },
+	{
+  group: "通用",
+  name: "心愿单",
+  schema: [
+    { key: "addedDate", label: "加入时间", type: "date", required: true },
+    { key: "targetDate", label: "期望日期", type: "date", required: false },
+    { key: "completionDate", label: "完成日期", type: "date", required: false },
+    { key: "itemCategory", label: "项目类别", type: "select", options: ["数码", "服饰", "家居", "书籍", "旅行", "美食", "学习", "健康", "娱乐", "其他"], required: false },
+    { key: "priority", label: "优先级", type: "select", options: ["低", "中", "高", "最高"], required: false },
+    { key: "estimatedCost", label: "预计花费（元）", type: "number", required: false },
+    { key: "actualCost", label: "实际花费（元）", type: "number", required: false },
+    { key: "currentStatus", label: "当前状态", type: "select", options: ["计划中", "待购买", "进行中", "已暂缓", "已取消", "已完成"], required: true },
+    { key: "notes", label: "备注说明", type: "textarea", required: false },
+    { key: "relatedLink", label: "相关链接", type: "text", required: false },
+    { key: "attachment", label: "附件/图片", type: "file", required: false }
+  ]
+},
     {
       group: "通用",
       name: "维护记录",

@@ -126,22 +126,34 @@ export function ItemEditor({
   const setCover = trpc.items.setCover.useMutation({
     onSuccess: async () => {
       if (!itemId) return;
+      setImageActionFeedback({ type: "success", message: "已设为封面" });
       await utils.items.get.invalidate({ id: itemId });
       await utils.items.list.invalidate();
+    },
+    onError: (error) => {
+      setImageActionFeedback({ type: "error", message: error.message || "设置封面失败" });
     },
   });
   const addImage = trpc.items.imagesAdd.useMutation({
     onSuccess: async () => {
       if (!itemId) return;
+      setImageActionFeedback({ type: "success", message: "图片已上传" });
       await utils.items.get.invalidate({ id: itemId });
       await utils.items.list.invalidate();
+    },
+    onError: (error) => {
+      setImageActionFeedback({ type: "error", message: error.message || "上传失败" });
     },
   });
   const removeImage = trpc.items.imagesRemove.useMutation({
     onSuccess: async () => {
       if (!itemId) return;
+      setImageActionFeedback({ type: "success", message: "图片已删除" });
       await utils.items.get.invalidate({ id: itemId });
       await utils.items.list.invalidate();
+    },
+    onError: (error) => {
+      setImageActionFeedback({ type: "error", message: error.message || "删除失败" });
     },
   });
 
@@ -185,6 +197,14 @@ export function ItemEditor({
 
   const [values, setValues] = useState<ItemFormValues>(initialValues);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [imageActionFeedback, setImageActionFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    imageId: string;
+    imageUrl: string;
+  } | null>(null);
   const initialTagIds = useMemo(
     () => (item?.data?.tags?.map((t) => t.tagId).filter(Boolean) as string[]) ?? [],
     [item?.data?.tags],
@@ -193,6 +213,13 @@ export function ItemEditor({
   const [newTagName, setNewTagName] = useState("");
 
   const canMutateChild = mode === "edit" && !!itemId;
+
+  // Auto-dismiss feedback after 2 seconds
+  useEffect(() => {
+    if (!imageActionFeedback) return;
+    const timer = setTimeout(() => setImageActionFeedback(null), 2000);
+    return () => clearTimeout(timer);
+  }, [imageActionFeedback]);
 
   // keep local tagIds in sync after fetch
   useEffect(() => {
@@ -214,6 +241,7 @@ export function ItemEditor({
 
   return (
     <div>
+      {/* Image Preview Modal */}
       {previewUrl ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
@@ -235,6 +263,96 @@ export function ItemEditor({
             >
               <IconX className="h-4 w-4" />
             </button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={() => setDeleteConfirm(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-white/10 to-white/5 shadow-2xl backdrop-blur-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full border border-rose-300/20 bg-rose-300/10">
+                  <svg className="h-6 w-6 text-rose-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">删除图片</h3>
+                  <p className="mt-1 text-sm text-white/60">此操作无法撤销</p>
+                </div>
+              </div>
+
+              {/* Image Preview */}
+              <div className="mb-4 overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={deleteConfirm.imageUrl} alt="" className="h-32 w-full object-cover" />
+              </div>
+
+              <p className="mb-6 text-sm text-white/80">
+                确定要删除这张图片吗？删除后将无法恢复。
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirm(null)}
+                  className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/80 transition hover:bg-white/10"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    removeImage.mutate({ id: deleteConfirm.imageId });
+                    setDeleteConfirm(null);
+                  }}
+                  disabled={removeImage.isPending}
+                  className={clsx(
+                    "flex-1 rounded-xl border border-rose-300/20 bg-rose-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-600",
+                    removeImage.isPending && "opacity-60 cursor-wait",
+                  )}
+                >
+                  {removeImage.isPending ? "删除中..." : "确认删除"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Image Action Feedback Toast */}
+      {imageActionFeedback ? (
+        <div className="fixed right-4 top-4 z-50 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div
+            className={clsx(
+              "rounded-xl border px-4 py-3 shadow-lg backdrop-blur",
+              imageActionFeedback.type === "success"
+                ? "border-green-300/20 bg-green-300/10 text-green-100"
+                : "border-rose-300/20 bg-rose-300/10 text-rose-100",
+            )}
+          >
+            <div className="flex items-center gap-2">
+              {imageActionFeedback.type === "success" ? (
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              )}
+              <span className="text-sm font-medium">{imageActionFeedback.message}</span>
+            </div>
           </div>
         </div>
       ) : null}
@@ -439,34 +557,54 @@ export function ItemEditor({
                       key={img.id}
                       className="group relative overflow-hidden rounded-2xl border border-white/10 bg-black/20"
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={img.url} alt="" className="h-24 w-full object-cover" />
+                      {/* Clickable Image - Opens Preview */}
                       <button
                         type="button"
                         onClick={() => setPreviewUrl(img.url)}
-                        className="absolute right-2 top-2 grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-black/35 text-white/80 opacity-0 shadow-lg backdrop-blur transition hover:bg-black/55 hover:text-white group-hover:opacity-100"
-                        aria-label="查看大图"
-                        title="查看大图"
+                        className="block h-24 w-full"
                       >
-                        <IconExpand className="h-[18px] w-[18px]" />
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={img.url} alt="" className="h-full w-full object-cover" />
                       </button>
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-                      <div className="absolute bottom-1 left-1 right-1 flex flex-wrap gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+
+                      {/* Hover Overlay for Desktop */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100 pointer-events-none" />
+
+                      {/* Action Buttons - Always visible on mobile, hover on desktop */}
+                      <div className="absolute bottom-1 left-1 right-1 flex flex-wrap gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         <button
-                          onClick={() => setCover.mutate({ itemId: itemId!, imageId: img.id })}
-                          className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-black"
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCover.mutate({ itemId: itemId!, imageId: img.id });
+                          }}
+                          disabled={setCover.isPending}
+                          className={clsx(
+                            "rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-black transition hover:bg-white/90 shadow-lg",
+                            setCover.isPending && "opacity-60 cursor-wait",
+                          )}
                         >
-                          设为封面
+                          {setCover.isPending ? "设置中..." : "设为封面"}
                         </button>
                         <button
-                          onClick={() => removeImage.mutate({ id: img.id })}
-                          className="rounded-full border border-rose-300/20 bg-rose-300/10 px-2 py-1 text-[11px] text-rose-100"
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteConfirm({ imageId: img.id, imageUrl: img.url });
+                          }}
+                          disabled={removeImage.isPending}
+                          className={clsx(
+                            "rounded-full border border-rose-300/20 bg-rose-300/10 px-2 py-1 text-[11px] text-rose-100 transition hover:bg-rose-300/20 shadow-lg backdrop-blur",
+                            removeImage.isPending && "opacity-60 cursor-wait",
+                          )}
                         >
-                          删除
+                          {removeImage.isPending ? "删除中..." : "删除"}
                         </button>
                       </div>
+
+                      {/* Cover Badge */}
                       {item?.data?.coverImageId === img.id ? (
-                        <div className="absolute left-2 top-2 rounded-full border border-amber-200/20 bg-amber-200/10 px-2 py-0.5 text-[11px] text-amber-100">
+                        <div className="absolute left-2 top-2 rounded-full border border-amber-200/20 bg-amber-200/10 px-2 py-0.5 text-[11px] text-amber-100 shadow-lg backdrop-blur pointer-events-none">
                           封面
                         </div>
                       ) : null}
