@@ -1,0 +1,29 @@
+[Unit]
+Description=Home Box - Personal Item Management System
+After=network.target
+
+[Service]
+Type=forking
+User=your-username
+Group=your-username
+WorkingDirectory=/path/to/home-box
+Environment="NODE_ENV=production"
+Environment="PORT=3002"
+Environment="DATABASE_URL=file:./prisma/prod.db"
+Environment="NEXTAUTH_SECRET=mmmmmmmmmmmmmmmmmmm"
+Environment="NEXTAUTH_URL=http://localhost:3002"
+Environment="ADMIN_USERNAME=admin"
+Environment="ADMIN_PASSWORD=123456"
+
+ExecStart=/path/to/home-box/start.sh start
+ExecStop=/path/to/home-box/start.sh stop
+ExecReload=/path/to/home-box/start.sh restart
+
+Restart=on-failure
+RestartSec=10
+
+StandardOutput=append:/path/to/home-box/logs/app.log
+StandardError=append:/path/to/home-box/logs/error.log
+
+[Install]
+WantedBy=multi-user.target
