@@ -62,6 +62,21 @@ echo ""
 # 赋予启动脚本执行权限
 chmod +x start.sh
 
+# 创建配置文件（如果不存在）
+if [ ! -f config.env ]; then
+    echo "创建配置文件..."
+    if [ -f config.env.example ]; then
+        cp config.env.example config.env
+        echo "配置文件已创建: config.env"
+        echo "请根据需要修改配置文件"
+    else
+        echo "警告: config.env.example 不存在，跳过配置文件创建"
+    fi
+else
+    echo "配置文件已存在: config.env"
+fi
+
+echo ""
 echo "开始安装 Home Box..."
 echo ""
 

@@ -5,22 +5,44 @@
 
 set -e
 
-# 配置变量
-APP_NAME="home-box"
+# 获取脚本所在目录
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"
-PORT=3002
-PID_FILE="$APP_DIR/.home-box.pid"
-LOG_FILE="$APP_DIR/logs/app.log"
-ERROR_LOG_FILE="$APP_DIR/logs/error.log"
+CONFIG_FILE="$APP_DIR/config.env"
 
-# 环境变量
-export NODE_ENV=production
-export PORT=$PORT
-export DATABASE_URL="file:./prisma/prod.db"
-export NEXTAUTH_SECRET="mmmmmmmmmmmmmmmmmmm"
-export NEXTAUTH_URL="http://localhost:$PORT"
-export ADMIN_USERNAME="admin"
-export ADMIN_PASSWORD="123456"
+# 加载配置文件
+if [ -f "$CONFIG_FILE" ]; then
+    # 读取配置文件，忽略注释和空行
+    while IFS='=' read -r key value; do
+        # 跳过注释和空行
+        [[ $key =~ ^#.*$ ]] && continue
+        [[ -z $key ]] && continue
+        # 去除前后空格和引号
+        key=$(echo "$key" | xargs)
+        value=$(echo "$value" | xargs | sed -e 's/^"//' -e 's/"$//')
+        # 导出环境变量
+        export "$key=$value"
+    done < "$CONFIG_FILE"
+else
+    echo "错误: 配置文件不存在: $CONFIG_FILE"
+    echo "请复制 config.env.example 为 config.env 并修改配置"
+    exit 1
+fi
+
+# 从配置文件读取的变量
+APP_NAME="${APP_NAME:-home-box}"
+PORT="${PORT:-3002}"
+PID_FILE="$APP_DIR/${PID_FILE:-.home-box.pid}"
+LOG_FILE="$APP_DIR/${LOG_FILE:-logs/app.log}"
+ERROR_LOG_FILE="$APP_DIR/${ERROR_LOG_FILE:-logs/error.log}"
+
+# 设置环境变量
+export NODE_ENV="${NODE_ENV:-production}"
+export PORT="$PORT"
+export DATABASE_URL="${DATABASE_URL:-file:./prisma/prod.db}"
+export NEXTAUTH_SECRET="${NEXTAUTH_SECRET}"
+export NEXTAUTH_URL="${NEXTAUTH_URL:-http://localhost:$PORT}"
+export ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
+export ADMIN_PASSWORD="${ADMIN_PASSWORD:-123456}"
 
 # 颜色输出
 RED='\033[0;31m'

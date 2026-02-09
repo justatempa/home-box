@@ -21,6 +21,7 @@ chmod +x deploy.sh
 这个脚本会自动：
 - 检测操作系统
 - 安装 Node.js（如果未安装）
+- 创建配置文件（config.env）
 - 安装所有依赖
 - 初始化数据库
 - 构建应用
@@ -35,12 +36,59 @@ node -v
 # 2. 赋予执行权限
 chmod +x start.sh
 
-# 3. 完整安装
+# 3. 创建配置文件
+cp config.env.example config.env
+
+# 4. 编辑配置文件（必须修改密钥和密码）
+nano config.env
+
+# 5. 完整安装
 ./start.sh install
 
-# 4. 启动应用
+# 6. 启动应用
 ./start.sh start
 ```
+
+## ⚙️ 配置文件
+
+### 配置文件位置
+
+- **config.env** - 实际使用的配置文件
+- **config.env.example** - 配置文件示例
+
+### 创建配置文件
+
+```bash
+# 复制示例配置文件
+cp config.env.example config.env
+
+# 编辑配置文件
+nano config.env
+```
+
+### 必须修改的配置
+
+```bash
+# 生成安全的密钥
+openssl rand -base64 32
+
+# 修改 config.env 中的以下配置
+NEXTAUTH_SECRET="生成的密钥"
+ADMIN_PASSWORD="强密码"
+```
+
+### 配置文件示例
+
+```bash
+PORT=3002
+DATABASE_URL="file:./prisma/prod.db"
+NEXTAUTH_SECRET="mmmmmmmmmmmmmmmmmmm"
+NEXTAUTH_URL="http://localhost:3002"
+ADMIN_USERNAME="admin"
+ADMIN_PASSWORD="123456"
+```
+
+详细配置说明请查看: [配置文件文档](./docs/configuration.md)
 
 ## 📋 常用命令
 
